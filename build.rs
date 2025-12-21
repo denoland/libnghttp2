@@ -175,11 +175,28 @@ fn generate_pkgconfig(
 
 fn generate_bindings(out_dir: &Path, include_dir: &Path) {
   let header_path = include_dir.join("nghttp2/nghttp2.h");
+  let target = env::var("TARGET").expect("TARGET not set");
 
-  let bindings = bindgen::Builder::default()
+  let mut builder = bindgen::Builder::default()
     .header(header_path.to_str().unwrap())
     .clang_arg(format!("-I{}", include_dir.display()))
-    .clang_arg("-Inghttp2/lib/includes")
+    .clang_arg("-Inghttp2/lib/includes");
+
+  // On Windows MSVC, define ssize_t for clang/bindgen
+  if target.contains("windows") && target.contains("msvc") {
+    let pointer_width = env::var("CARGO_CFG_TARGET_POINTER_WIDTH")
+      .expect("CARGO_CFG_TARGET_POINTER_WIDTH not set");
+
+    let ssize_t_def = match pointer_width.as_str() {
+      "64" => "ssize_t=long long",
+      "32" => "ssize_t=long",
+      width => panic!("Unsupported pointer width: {}", width),
+    };
+
+    builder = builder.clang_arg(format!("-D{}", ssize_t_def));
+  }
+
+  let bindings = builder
     // Only include nghttp2 symbols
     .allowlist_function("nghttp2_.*")
     .allowlist_type("nghttp2_.*")
