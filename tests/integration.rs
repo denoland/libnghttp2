@@ -1,4 +1,4 @@
-use nghttp2_sys::*;
+use libnghttp2::*;
 use std::ffi::CStr;
 use std::ptr;
 

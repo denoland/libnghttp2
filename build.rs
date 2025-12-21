@@ -37,7 +37,12 @@ fn parse_nghttp2_version() -> NgHttp2Version {
 
   let parts: Vec<u32> = version_str
     .split('.')
-    .map(|s| s.parse().expect("Invalid version number"))
+    .take(3)
+    .map(|s| {
+      // Strip any pre-release suffixes like "-rc.0"
+      let numeric_part = s.split('-').next().unwrap_or(s);
+      numeric_part.parse().expect("Invalid version number")
+    })
     .collect();
 
   assert_eq!(parts.len(), 3, "Version must have 3 components");

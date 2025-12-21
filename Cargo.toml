@@ -1,13 +1,13 @@
 [package]
-name = "nghttp2-sys"
-version = "0.1.0"
+name = "libnghttp2"
+version = "1.68.0-rc.0"
 edition = "2024"
 authors = ["Divy Srivastava <me@littledivy.com>"]
-repository = "https://github.com/denoland/nghttp2-sys"
-homepage = "https://github.com/denoland/nghttp2-rs"
-description = "nghttp2 FFI bindings"
+repository = "https://github.com/littledivy/libnghttp2"
+homepage = "https://github.com/littledivy/libnghttp2"
+description = "FFI bindings to the HTTP/2 framing layer of nghttp2 C library"
 readme = "README.md"
-license = "MIT"
+license = "Apache-2.0"
 
 [lib]
 doctest = false
