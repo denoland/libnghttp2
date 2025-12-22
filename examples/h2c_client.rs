@@ -246,12 +246,12 @@ unsafe extern "C" fn send_cb(
   len: usize,
   _: i32,
   user_data: *mut std::os::raw::c_void,
-) -> isize {
+) -> i64 {
   unsafe {
     let ctx = &mut *(user_data as *mut Context);
     match ctx.stream.write_all(slice::from_raw_parts(data, len)) {
-      Ok(_) => len as isize,
-      Err(_) => NGHTTP2_ERR_CALLBACK_FAILURE as isize,
+      Ok(_) => len as i64,
+      Err(_) => NGHTTP2_ERR_CALLBACK_FAILURE as i64,
     }
   }
 }
