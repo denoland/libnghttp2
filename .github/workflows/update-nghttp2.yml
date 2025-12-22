@@ -20,6 +20,12 @@ jobs:
           submodules: recursive
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Fetch tags for submodule
+        run: |
+          cd nghttp2
+          git fetch --tags
+          cd ..
+
       - name: Get latest nghttp2 release
         id: latest_release
         run: |
