@@ -1,0 +1,87 @@
+name: Update nghttp2
+
+on:
+  schedule:
+    # Run daily at 00:00 UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  check-and-update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get latest nghttp2 release
+        id: latest_release
+        run: |
+          LATEST=$(curl -s https://api.github.com/repos/nghttp2/nghttp2/releases/latest | jq -r .tag_name)
+          echo "version=$LATEST" >> $GITHUB_OUTPUT
+          echo "Latest nghttp2 release: $LATEST"
+
+      - name: Get current nghttp2 version
+        id: current_version
+        run: |
+          cd nghttp2
+          CURRENT=$(git describe --tags)
+          echo "version=$CURRENT" >> $GITHUB_OUTPUT
+          echo "Current nghttp2 version: $CURRENT"
+          cd ..
+
+      - name: Check if update is needed
+        id: check_update
+        run: |
+          if [ "${{ steps.current_version.outputs.version }}" != "${{ steps.latest_release.outputs.version }}" ]; then
+            echo "update_needed=true" >> $GITHUB_OUTPUT
+            echo "Update needed from ${{ steps.current_version.outputs.version }} to ${{ steps.latest_release.outputs.version }}"
+          else
+            echo "update_needed=false" >> $GITHUB_OUTPUT
+            echo "Already up to date"
+          fi
+
+      - name: Update nghttp2 submodule
+        if: steps.check_update.outputs.update_needed == 'true'
+        run: |
+          cd nghttp2
+          git fetch --tags
+          git checkout ${{ steps.latest_release.outputs.version }}
+          cd ..
+
+      - name: Update Cargo.toml version
+        if: steps.check_update.outputs.update_needed == 'true'
+        run: |
+          # Extract version without 'v' prefix
+          NEW_VERSION="${{ steps.latest_release.outputs.version }}"
+          NEW_VERSION="${NEW_VERSION#v}"
+
+          # Update version in Cargo.toml
+          sed -i "s/^version = \".*\"/version = \"${NEW_VERSION}\"/" Cargo.toml
+
+      - name: Create Pull Request
+        if: steps.check_update.outputs.update_needed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "Update nghttp2 to ${{ steps.latest_release.outputs.version }}"
+          title: "Update nghttp2 to ${{ steps.latest_release.outputs.version }}"
+          body: |
+            ## Summary
+            - Updates nghttp2 submodule from ${{ steps.current_version.outputs.version }} to ${{ steps.latest_release.outputs.version }}
+            - Updates package version to ${{ steps.latest_release.outputs.version }}
+
+            ## Changes
+            - Submodule `nghttp2` updated to ${{ steps.latest_release.outputs.version }}
+            - Cargo.toml version bumped
+
+            ## Release Notes
+            See: https://github.com/nghttp2/nghttp2/releases/tag/${{ steps.latest_release.outputs.version }}
+          branch: update-nghttp2-${{ steps.latest_release.outputs.version }}
+          delete-branch: true
+          labels: dependencies, automated
