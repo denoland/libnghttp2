@@ -23,7 +23,7 @@ jobs:
       - name: Fetch tags for submodule
         run: |
           cd nghttp2
-          git fetch --tags
+          git fetch --tags --no-recurse-submodules
           cd ..
 
       - name: Get latest nghttp2 release
