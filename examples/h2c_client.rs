@@ -240,6 +240,7 @@ unsafe fn to_str(ptr: *const u8, len: usize) -> String {
   String::from_utf8_lossy(unsafe { slice::from_raw_parts(ptr, len) }).into()
 }
 
+#[cfg(windows)]
 unsafe extern "C" fn send_cb(
   _: *mut nghttp2_session,
   data: *const u8,
@@ -252,6 +253,23 @@ unsafe extern "C" fn send_cb(
     match ctx.stream.write_all(slice::from_raw_parts(data, len)) {
       Ok(_) => len as i64,
       Err(_) => NGHTTP2_ERR_CALLBACK_FAILURE as i64,
+    }
+  }
+}
+
+#[cfg(not(windows))]
+unsafe extern "C" fn send_cb(
+  _: *mut nghttp2_session,
+  data: *const u8,
+  len: usize,
+  _: i32,
+  user_data: *mut std::os::raw::c_void,
+) -> isize {
+  unsafe {
+    let ctx = &mut *(user_data as *mut Context);
+    match ctx.stream.write_all(slice::from_raw_parts(data, len)) {
+      Ok(_) => len as isize,
+      Err(_) => NGHTTP2_ERR_CALLBACK_FAILURE as isize,
     }
   }
 }
