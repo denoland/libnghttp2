@@ -22,6 +22,89 @@ fn main() {
   generate_bindings(&out_dir, &include_dir);
 
   println!("cargo:root={}", install_dir.display());
+
+  // Emit rerun-if-changed directives to avoid unnecessary rebuilds
+  emit_rerun_if_changed();
+}
+
+fn emit_rerun_if_changed() {
+  // Build script itself
+  println!("cargo:rerun-if-changed=build.rs");
+
+  // Template files
+  println!("cargo:rerun-if-changed=nghttp2/lib/includes/nghttp2/nghttp2ver.h.in");
+  println!("cargo:rerun-if-changed=nghttp2/lib/libnghttp2.pc.in");
+
+  // Header files
+  println!("cargo:rerun-if-changed=nghttp2/lib/includes/nghttp2/nghttp2.h");
+
+  // All source files
+  const SOURCES: &[&str] = &[
+    "nghttp2/lib/sfparse.c",
+    "nghttp2/lib/nghttp2_alpn.c",
+    "nghttp2/lib/nghttp2_buf.c",
+    "nghttp2/lib/nghttp2_callbacks.c",
+    "nghttp2/lib/nghttp2_debug.c",
+    "nghttp2/lib/nghttp2_extpri.c",
+    "nghttp2/lib/nghttp2_frame.c",
+    "nghttp2/lib/nghttp2_hd.c",
+    "nghttp2/lib/nghttp2_hd_huffman.c",
+    "nghttp2/lib/nghttp2_hd_huffman_data.c",
+    "nghttp2/lib/nghttp2_helper.c",
+    "nghttp2/lib/nghttp2_http.c",
+    "nghttp2/lib/nghttp2_map.c",
+    "nghttp2/lib/nghttp2_mem.c",
+    "nghttp2/lib/nghttp2_option.c",
+    "nghttp2/lib/nghttp2_outbound_item.c",
+    "nghttp2/lib/nghttp2_pq.c",
+    "nghttp2/lib/nghttp2_priority_spec.c",
+    "nghttp2/lib/nghttp2_queue.c",
+    "nghttp2/lib/nghttp2_rcbuf.c",
+    "nghttp2/lib/nghttp2_session.c",
+    "nghttp2/lib/nghttp2_stream.c",
+    "nghttp2/lib/nghttp2_submit.c",
+    "nghttp2/lib/nghttp2_version.c",
+    "nghttp2/lib/nghttp2_ratelim.c",
+    "nghttp2/lib/nghttp2_time.c",
+  ];
+
+  for source in SOURCES {
+    println!("cargo:rerun-if-changed={}", source);
+  }
+
+  // Header dependencies
+  const HEADERS: &[&str] = &[
+    "nghttp2/lib/sfparse.h",
+    "nghttp2/lib/nghttp2_alpn.h",
+    "nghttp2/lib/nghttp2_buf.h",
+    "nghttp2/lib/nghttp2_callbacks.h",
+    "nghttp2/lib/nghttp2_debug.h",
+    "nghttp2/lib/nghttp2_extpri.h",
+    "nghttp2/lib/nghttp2_frame.h",
+    "nghttp2/lib/nghttp2_hd.h",
+    "nghttp2/lib/nghttp2_hd_huffman.h",
+    "nghttp2/lib/nghttp2_helper.h",
+    "nghttp2/lib/nghttp2_http.h",
+    "nghttp2/lib/nghttp2_int.h",
+    "nghttp2/lib/nghttp2_map.h",
+    "nghttp2/lib/nghttp2_mem.h",
+    "nghttp2/lib/nghttp2_net.h",
+    "nghttp2/lib/nghttp2_option.h",
+    "nghttp2/lib/nghttp2_outbound_item.h",
+    "nghttp2/lib/nghttp2_pq.h",
+    "nghttp2/lib/nghttp2_priority_spec.h",
+    "nghttp2/lib/nghttp2_queue.h",
+    "nghttp2/lib/nghttp2_ratelim.h",
+    "nghttp2/lib/nghttp2_rcbuf.h",
+    "nghttp2/lib/nghttp2_session.h",
+    "nghttp2/lib/nghttp2_stream.h",
+    "nghttp2/lib/nghttp2_submit.h",
+    "nghttp2/lib/nghttp2_time.h",
+  ];
+
+  for header in HEADERS {
+    println!("cargo:rerun-if-changed={}", header);
+  }
 }
 
 struct NgHttp2Version {
@@ -201,6 +284,10 @@ fn generate_bindings(out_dir: &Path, include_dir: &Path) {
     builder = builder.clang_arg(format!("-D{}", ssize_t_def));
   }
 
+  // Note: We don't use CargoCallbacks here because it would emit
+  // rerun-if-changed for generated headers in OUT_DIR (whose path changes
+  // between builds) and system headers. We manually emit rerun-if-changed
+  // for the source files in emit_rerun_if_changed() instead.
   let bindings = builder
     // Only include nghttp2 symbols
     .allowlist_function("nghttp2_.*")
@@ -220,7 +307,6 @@ fn generate_bindings(out_dir: &Path, include_dir: &Path) {
     .blocklist_function(".*vprintf.*")
     .blocklist_type(".*va_list.*")
     .blocklist_type("nghttp2_debug_vprintf_callback")
-    .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
     .generate()
     .expect("Failed to generate bindings");
 
