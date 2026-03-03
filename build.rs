@@ -2,6 +2,64 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+const SOURCES: &[&str] = &[
+  "nghttp2/lib/sfparse.c",
+  "nghttp2/lib/nghttp2_alpn.c",
+  "nghttp2/lib/nghttp2_buf.c",
+  "nghttp2/lib/nghttp2_callbacks.c",
+  "nghttp2/lib/nghttp2_debug.c",
+  "nghttp2/lib/nghttp2_extpri.c",
+  "nghttp2/lib/nghttp2_frame.c",
+  "nghttp2/lib/nghttp2_hd.c",
+  "nghttp2/lib/nghttp2_hd_huffman.c",
+  "nghttp2/lib/nghttp2_hd_huffman_data.c",
+  "nghttp2/lib/nghttp2_helper.c",
+  "nghttp2/lib/nghttp2_http.c",
+  "nghttp2/lib/nghttp2_map.c",
+  "nghttp2/lib/nghttp2_mem.c",
+  "nghttp2/lib/nghttp2_option.c",
+  "nghttp2/lib/nghttp2_outbound_item.c",
+  "nghttp2/lib/nghttp2_pq.c",
+  "nghttp2/lib/nghttp2_priority_spec.c",
+  "nghttp2/lib/nghttp2_queue.c",
+  "nghttp2/lib/nghttp2_rcbuf.c",
+  "nghttp2/lib/nghttp2_session.c",
+  "nghttp2/lib/nghttp2_stream.c",
+  "nghttp2/lib/nghttp2_submit.c",
+  "nghttp2/lib/nghttp2_version.c",
+  "nghttp2/lib/nghttp2_ratelim.c",
+  "nghttp2/lib/nghttp2_time.c",
+];
+
+const HEADERS: &[&str] = &[
+  "nghttp2/lib/sfparse.h",
+  "nghttp2/lib/nghttp2_alpn.h",
+  "nghttp2/lib/nghttp2_buf.h",
+  "nghttp2/lib/nghttp2_callbacks.h",
+  "nghttp2/lib/nghttp2_debug.h",
+  "nghttp2/lib/nghttp2_extpri.h",
+  "nghttp2/lib/nghttp2_frame.h",
+  "nghttp2/lib/nghttp2_hd.h",
+  "nghttp2/lib/nghttp2_hd_huffman.h",
+  "nghttp2/lib/nghttp2_helper.h",
+  "nghttp2/lib/nghttp2_http.h",
+  "nghttp2/lib/nghttp2_int.h",
+  "nghttp2/lib/nghttp2_map.h",
+  "nghttp2/lib/nghttp2_mem.h",
+  "nghttp2/lib/nghttp2_net.h",
+  "nghttp2/lib/nghttp2_option.h",
+  "nghttp2/lib/nghttp2_outbound_item.h",
+  "nghttp2/lib/nghttp2_pq.h",
+  "nghttp2/lib/nghttp2_priority_spec.h",
+  "nghttp2/lib/nghttp2_queue.h",
+  "nghttp2/lib/nghttp2_ratelim.h",
+  "nghttp2/lib/nghttp2_rcbuf.h",
+  "nghttp2/lib/nghttp2_session.h",
+  "nghttp2/lib/nghttp2_stream.h",
+  "nghttp2/lib/nghttp2_submit.h",
+  "nghttp2/lib/nghttp2_time.h",
+];
+
 fn main() {
   let out_dir = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR not set"));
   let target = env::var("TARGET").expect("TARGET not set");
@@ -35,73 +93,15 @@ fn emit_rerun_if_changed() {
   println!("cargo:rerun-if-changed=nghttp2/lib/includes/nghttp2/nghttp2ver.h.in");
   println!("cargo:rerun-if-changed=nghttp2/lib/libnghttp2.pc.in");
 
-  // Header files
+  // Header files (public)
   println!("cargo:rerun-if-changed=nghttp2/lib/includes/nghttp2/nghttp2.h");
 
-  // All source files
-  const SOURCES: &[&str] = &[
-    "nghttp2/lib/sfparse.c",
-    "nghttp2/lib/nghttp2_alpn.c",
-    "nghttp2/lib/nghttp2_buf.c",
-    "nghttp2/lib/nghttp2_callbacks.c",
-    "nghttp2/lib/nghttp2_debug.c",
-    "nghttp2/lib/nghttp2_extpri.c",
-    "nghttp2/lib/nghttp2_frame.c",
-    "nghttp2/lib/nghttp2_hd.c",
-    "nghttp2/lib/nghttp2_hd_huffman.c",
-    "nghttp2/lib/nghttp2_hd_huffman_data.c",
-    "nghttp2/lib/nghttp2_helper.c",
-    "nghttp2/lib/nghttp2_http.c",
-    "nghttp2/lib/nghttp2_map.c",
-    "nghttp2/lib/nghttp2_mem.c",
-    "nghttp2/lib/nghttp2_option.c",
-    "nghttp2/lib/nghttp2_outbound_item.c",
-    "nghttp2/lib/nghttp2_pq.c",
-    "nghttp2/lib/nghttp2_priority_spec.c",
-    "nghttp2/lib/nghttp2_queue.c",
-    "nghttp2/lib/nghttp2_rcbuf.c",
-    "nghttp2/lib/nghttp2_session.c",
-    "nghttp2/lib/nghttp2_stream.c",
-    "nghttp2/lib/nghttp2_submit.c",
-    "nghttp2/lib/nghttp2_version.c",
-    "nghttp2/lib/nghttp2_ratelim.c",
-    "nghttp2/lib/nghttp2_time.c",
-  ];
-
+  // Source files
   for source in SOURCES {
     println!("cargo:rerun-if-changed={}", source);
   }
 
-  // Header dependencies
-  const HEADERS: &[&str] = &[
-    "nghttp2/lib/sfparse.h",
-    "nghttp2/lib/nghttp2_alpn.h",
-    "nghttp2/lib/nghttp2_buf.h",
-    "nghttp2/lib/nghttp2_callbacks.h",
-    "nghttp2/lib/nghttp2_debug.h",
-    "nghttp2/lib/nghttp2_extpri.h",
-    "nghttp2/lib/nghttp2_frame.h",
-    "nghttp2/lib/nghttp2_hd.h",
-    "nghttp2/lib/nghttp2_hd_huffman.h",
-    "nghttp2/lib/nghttp2_helper.h",
-    "nghttp2/lib/nghttp2_http.h",
-    "nghttp2/lib/nghttp2_int.h",
-    "nghttp2/lib/nghttp2_map.h",
-    "nghttp2/lib/nghttp2_mem.h",
-    "nghttp2/lib/nghttp2_net.h",
-    "nghttp2/lib/nghttp2_option.h",
-    "nghttp2/lib/nghttp2_outbound_item.h",
-    "nghttp2/lib/nghttp2_pq.h",
-    "nghttp2/lib/nghttp2_priority_spec.h",
-    "nghttp2/lib/nghttp2_queue.h",
-    "nghttp2/lib/nghttp2_ratelim.h",
-    "nghttp2/lib/nghttp2_rcbuf.h",
-    "nghttp2/lib/nghttp2_session.h",
-    "nghttp2/lib/nghttp2_stream.h",
-    "nghttp2/lib/nghttp2_submit.h",
-    "nghttp2/lib/nghttp2_time.h",
-  ];
-
+  // Header dependencies (internal)
   for header in HEADERS {
     println!("cargo:rerun-if-changed={}", header);
   }
@@ -189,35 +189,6 @@ fn build_nghttp2(target: &str, include_dir: &Path, lib_dir: &Path) {
 }
 
 fn add_source_files(build: &mut cc::Build) {
-  const SOURCES: &[&str] = &[
-    "nghttp2/lib/sfparse.c",
-    "nghttp2/lib/nghttp2_alpn.c",
-    "nghttp2/lib/nghttp2_buf.c",
-    "nghttp2/lib/nghttp2_callbacks.c",
-    "nghttp2/lib/nghttp2_debug.c",
-    "nghttp2/lib/nghttp2_extpri.c",
-    "nghttp2/lib/nghttp2_frame.c",
-    "nghttp2/lib/nghttp2_hd.c",
-    "nghttp2/lib/nghttp2_hd_huffman.c",
-    "nghttp2/lib/nghttp2_hd_huffman_data.c",
-    "nghttp2/lib/nghttp2_helper.c",
-    "nghttp2/lib/nghttp2_http.c",
-    "nghttp2/lib/nghttp2_map.c",
-    "nghttp2/lib/nghttp2_mem.c",
-    "nghttp2/lib/nghttp2_option.c",
-    "nghttp2/lib/nghttp2_outbound_item.c",
-    "nghttp2/lib/nghttp2_pq.c",
-    "nghttp2/lib/nghttp2_priority_spec.c",
-    "nghttp2/lib/nghttp2_queue.c",
-    "nghttp2/lib/nghttp2_rcbuf.c",
-    "nghttp2/lib/nghttp2_session.c",
-    "nghttp2/lib/nghttp2_stream.c",
-    "nghttp2/lib/nghttp2_submit.c",
-    "nghttp2/lib/nghttp2_version.c",
-    "nghttp2/lib/nghttp2_ratelim.c",
-    "nghttp2/lib/nghttp2_time.c",
-  ];
-
   for source in SOURCES {
     build.file(source);
   }
