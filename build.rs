@@ -90,7 +90,9 @@ fn emit_rerun_if_changed() {
   println!("cargo:rerun-if-changed=build.rs");
 
   // Template files
-  println!("cargo:rerun-if-changed=nghttp2/lib/includes/nghttp2/nghttp2ver.h.in");
+  println!(
+    "cargo:rerun-if-changed=nghttp2/lib/includes/nghttp2/nghttp2ver.h.in"
+  );
   println!("cargo:rerun-if-changed=nghttp2/lib/libnghttp2.pc.in");
 
   // Header files (public)
