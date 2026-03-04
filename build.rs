@@ -266,6 +266,11 @@ fn generate_bindings(out_dir: &Path, include_dir: &Path) {
     .allowlist_function("nghttp2_.*")
     .allowlist_type("nghttp2_.*")
     .allowlist_var("NGHTTP2_.*")
+    // Generate enum constants with consistent types across platforms.
+    // Without this, C enums become i32 on MSVC (C standard: enum is int)
+    // but u32 on GCC/Clang (where the underlying type matches the values).
+    .default_enum_style(bindgen::EnumVariation::Consts)
+    .translate_enum_integer_types(true)
     // Opaque types that should not derive Copy
     .opaque_type("nghttp2_session")
     .opaque_type("nghttp2_rcbuf")
