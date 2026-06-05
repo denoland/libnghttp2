@@ -8,9 +8,21 @@ homepage = "https://github.com/littledivy/libnghttp2"
 description = "FFI bindings to the HTTP/2 framing layer of nghttp2 C library"
 readme = "README.md"
 license = "Apache-2.0"
+# Declare the native library this crate links, so Cargo can enforce a single
+# version in the dependency graph and expose DEP_NGHTTP2_* metadata (root,
+# include) to downstream build scripts.
+links = "nghttp2"
 
 [lib]
 doctest = false
+
+[features]
+default = []
+# Link against a system libnghttp2 (discovered via pkg-config) instead of
+# building the bundled copy. If no suitable system library is found, the build
+# falls back to the bundled sources. Equivalent to setting the
+# LIBNGHTTP2_SYS_USE_PKG_CONFIG environment variable at build time.
+system = []
 
 [dependencies]
 libc = '0.2'
@@ -18,3 +30,4 @@ libc = '0.2'
 [build-dependencies]
 cc = "1.0.24"
 bindgen = "0.71"
+pkg-config = "0.3"

@@ -30,3 +30,37 @@ jobs:
       run: cargo test --verbose --all-features
     - name: Check formatting
       run: cargo fmt -- --check --verbose
+
+  # Verify the optional system-linking path: build against a system libnghttp2
+  # discovered via pkg-config instead of the bundled sources.
+  system-link:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+      with:
+          submodules: 'recursive'
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@1.92.0
+    - name: Install system libnghttp2
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libnghttp2-dev pkg-config
+        pkg-config --modversion libnghttp2
+    - name: Build against system libnghttp2 (feature)
+      run: cargo build --verbose --features system
+    - name: Test against system libnghttp2 (env var)
+      env:
+        LIBNGHTTP2_SYS_USE_PKG_CONFIG: "1"
+      run: cargo test --verbose
+    - name: Verify the dynamic library is actually linked
+      env:
+        LIBNGHTTP2_SYS_USE_PKG_CONFIG: "1"
+      run: |
+        bin=$(cargo test --no-run --message-format=json \
+          | jq -r 'select(.profile.test == true and .executable != null) | .executable' \
+          | head -n1)
+        echo "Test binary: $bin"
+        ldd "$bin" | grep -i nghttp2
+        ldd "$bin" | grep -qi 'libnghttp2\.so' \
+          && echo "OK: dynamically linked against system libnghttp2" \
+          || (echo "ERROR: not linked against system libnghttp2" && exit 1)
