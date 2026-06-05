@@ -56,8 +56,11 @@ jobs:
       env:
         LIBNGHTTP2_SYS_USE_PKG_CONFIG: "1"
       run: |
+        # Pick the integration test binary: it actually references nghttp2
+        # symbols, so the linker keeps the DT_NEEDED entry (the lib's own empty
+        # unit-test harness would be dropped by --as-needed).
         bin=$(cargo test --no-run --message-format=json \
-          | jq -r 'select(.profile.test == true and .executable != null) | .executable' \
+          | jq -r 'select(.executable != null and .target.name == "integration") | .executable' \
           | head -n1)
         echo "Test binary: $bin"
         ldd "$bin" | grep -i nghttp2
