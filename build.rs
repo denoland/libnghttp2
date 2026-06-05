@@ -64,6 +64,20 @@ fn main() {
   let out_dir = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR not set"));
   let target = env::var("TARGET").expect("TARGET not set");
 
+  // Rebuild when the system-linking opt-in changes.
+  println!("cargo:rerun-if-env-changed=LIBNGHTTP2_SYS_USE_PKG_CONFIG");
+
+  // Optionally link against a system libnghttp2 instead of the bundled copy.
+  // Falls back to the bundled build when no suitable system library is found.
+  if try_system_nghttp2(&out_dir) {
+    return;
+  }
+
+  build_bundled(&out_dir, &target);
+}
+
+// Build and link the bundled nghttp2 sources (the default / fallback path).
+fn build_bundled(out_dir: &Path, target: &str) {
   let nghttp2_version = parse_nghttp2_version();
 
   let install_dir = out_dir.join("i");
@@ -74,15 +88,75 @@ fn main() {
   generate_version_header(&include_dir, &nghttp2_version);
   copy_main_header(&include_dir);
 
-  build_nghttp2(&target, &include_dir, &lib_dir);
+  build_nghttp2(target, &include_dir, &lib_dir);
 
   generate_pkgconfig(&install_dir, &include_dir, &lib_dir, &nghttp2_version);
-  generate_bindings(&out_dir, &include_dir);
+  generate_bindings(out_dir, &include_dir);
 
   println!("cargo:root={}", install_dir.display());
+  // Expose the bundled headers to downstream build scripts via
+  // DEP_NGHTTP2_INCLUDE (enabled by `links = "nghttp2"`).
+  println!("cargo:include={}", include_dir.display());
 
   // Emit rerun-if-changed directives to avoid unnecessary rebuilds
   emit_rerun_if_changed();
+}
+
+// Returns true if the requested system libnghttp2 was found and linked.
+//
+// System linking is opt-in: it is attempted only when the `system` Cargo
+// feature is enabled or the LIBNGHTTP2_SYS_USE_PKG_CONFIG environment variable
+// is set to a truthy value. When opted in but no suitable library is found, we
+// return false so the caller falls back to the bundled build.
+fn try_system_nghttp2(out_dir: &Path) -> bool {
+  if !system_linking_requested() {
+    return false;
+  }
+
+  let mut cfg = pkg_config::Config::new();
+  // libnghttp2 in this crate tracks the 1.x series; require at least 1.0.0.
+  cfg.atleast_version("1.0.0");
+  cfg.print_system_libs(false);
+
+  match cfg.probe("libnghttp2") {
+    Ok(lib) => {
+      // pkg-config has already emitted the rustc-link-lib / link-search
+      // directives. Generate bindings against the system headers and expose
+      // the include paths to downstream crates.
+      generate_bindings_system(out_dir, &lib.include_paths);
+
+      for path in &lib.include_paths {
+        if let Some(path) = path.to_str() {
+          println!("cargo:include={}", path);
+        }
+      }
+      println!(
+        "cargo:warning=libnghttp2: linking against system library (pkg-config)"
+      );
+      true
+    }
+    Err(err) => {
+      println!(
+        "cargo:warning=libnghttp2: system library requested but not found \
+         ({err}); falling back to the bundled build"
+      );
+      false
+    }
+  }
+}
+
+fn system_linking_requested() -> bool {
+  // `cargo:rustc-cfg`/features reach build scripts as CARGO_FEATURE_* vars.
+  if env::var_os("CARGO_FEATURE_SYSTEM").is_some() {
+    return true;
+  }
+  match env::var("LIBNGHTTP2_SYS_USE_PKG_CONFIG") {
+    Ok(value) => {
+      let value = value.trim();
+      !value.is_empty() && value != "0" && !value.eq_ignore_ascii_case("false")
+    }
+    Err(_) => false,
+  }
 }
 
 fn emit_rerun_if_changed() {
@@ -236,25 +310,56 @@ fn generate_pkgconfig(
 
 fn generate_bindings(out_dir: &Path, include_dir: &Path) {
   let header_path = include_dir.join("nghttp2/nghttp2.h");
+
+  let mut clang_args = vec![
+    format!("-I{}", include_dir.display()),
+    "-Inghttp2/lib/includes".to_string(),
+  ];
+  clang_args.extend(msvc_ssize_t_clang_arg());
+
+  write_bindings(out_dir, header_path.to_str().unwrap(), &clang_args);
+}
+
+// Generate bindings against a system-provided libnghttp2 header. A small
+// wrapper header is used so the system include directories resolve
+// <nghttp2/nghttp2.h>.
+fn generate_bindings_system(out_dir: &Path, include_paths: &[PathBuf]) {
+  let wrapper = out_dir.join("nghttp2_wrapper.h");
+  fs::write(&wrapper, "#include <nghttp2/nghttp2.h>\n")
+    .expect("Failed to write bindgen wrapper header");
+
+  let mut clang_args: Vec<String> = include_paths
+    .iter()
+    .map(|path| format!("-I{}", path.display()))
+    .collect();
+  clang_args.extend(msvc_ssize_t_clang_arg());
+
+  write_bindings(out_dir, wrapper.to_str().unwrap(), &clang_args);
+}
+
+// On Windows MSVC, clang/bindgen needs ssize_t defined.
+fn msvc_ssize_t_clang_arg() -> Option<String> {
   let target = env::var("TARGET").expect("TARGET not set");
+  if !(target.contains("windows") && target.contains("msvc")) {
+    return None;
+  }
 
-  let mut builder = bindgen::Builder::default()
-    .header(header_path.to_str().unwrap())
-    .clang_arg(format!("-I{}", include_dir.display()))
-    .clang_arg("-Inghttp2/lib/includes");
+  let pointer_width = env::var("CARGO_CFG_TARGET_POINTER_WIDTH")
+    .expect("CARGO_CFG_TARGET_POINTER_WIDTH not set");
 
-  // On Windows MSVC, define ssize_t for clang/bindgen
-  if target.contains("windows") && target.contains("msvc") {
-    let pointer_width = env::var("CARGO_CFG_TARGET_POINTER_WIDTH")
-      .expect("CARGO_CFG_TARGET_POINTER_WIDTH not set");
+  let ssize_t_def = match pointer_width.as_str() {
+    "64" => "ssize_t=long long",
+    "32" => "ssize_t=long",
+    width => panic!("Unsupported pointer width: {}", width),
+  };
 
-    let ssize_t_def = match pointer_width.as_str() {
-      "64" => "ssize_t=long long",
-      "32" => "ssize_t=long",
-      width => panic!("Unsupported pointer width: {}", width),
-    };
+  Some(format!("-D{}", ssize_t_def))
+}
 
-    builder = builder.clang_arg(format!("-D{}", ssize_t_def));
+fn write_bindings(out_dir: &Path, header: &str, clang_args: &[String]) {
+  let mut builder = bindgen::Builder::default().header(header);
+  for arg in clang_args {
+    builder = builder.clang_arg(arg);
   }
 
   // Note: We don't use CargoCallbacks here because it would emit

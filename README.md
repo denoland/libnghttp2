@@ -30,3 +30,29 @@ nghttp2_submit_request(session_ptr, ptr::null(), headers.as_ptr(), headers.len()
 ```
 
 See [examples/h2c_client.rs](examples/h2c_client.rs) for a simple HTTP/2 client implementation.
+
+## Linking
+
+By default this crate builds and statically links the bundled copy of nghttp2,
+so it works out of the box with no system dependencies.
+
+Packagers (e.g. distros) can instead link against a system libnghttp2 discovered
+via `pkg-config`. This is opt-in and falls back to the bundled build if no
+suitable system library is found:
+
+- Enable the `system` Cargo feature:
+
+  ```toml
+  [dependencies]
+  libnghttp2 = { version = "1", features = ["system"] }
+  ```
+
+- Or set the `LIBNGHTTP2_SYS_USE_PKG_CONFIG=1` environment variable at build
+  time (no source changes required):
+
+  ```sh
+  LIBNGHTTP2_SYS_USE_PKG_CONFIG=1 cargo build
+  ```
+
+The crate declares `links = "nghttp2"`, so downstream `-sys`-style consumers can
+read `DEP_NGHTTP2_ROOT` and `DEP_NGHTTP2_INCLUDE` from their build scripts.
