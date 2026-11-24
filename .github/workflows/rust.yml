@@ -52,6 +52,19 @@ jobs:
       env:
         LIBNGHTTP2_SYS_USE_PKG_CONFIG: "1"
       run: cargo test --verbose
+    - name: Verify that the env var doesn't fall back to the bundled build
+      env:
+        LIBNGHTTP2_SYS_USE_PKG_CONFIG: "1"
+        CARGO_TARGET_DIR: target/no-system-lib
+        # Make pkg-config unable to find libnghttp2.
+        PKG_CONFIG_LIBDIR: /nonexistent
+        PKG_CONFIG_PATH: ""
+      run: |
+        if cargo build 2> build.log; then
+          echo "ERROR: built without the system library, expected a failure"
+          exit 1
+        fi
+        grep -q 'LIBNGHTTP2_SYS_USE_PKG_CONFIG is set' build.log
     - name: Verify the dynamic library is actually linked
       env:
         LIBNGHTTP2_SYS_USE_PKG_CONFIG: "1"

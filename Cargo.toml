@@ -20,8 +20,11 @@ doctest = false
 default = []
 # Link against a system libnghttp2 (discovered via pkg-config) instead of
 # building the bundled copy. If no suitable system library is found, the build
-# falls back to the bundled sources. Equivalent to setting the
-# LIBNGHTTP2_SYS_USE_PKG_CONFIG environment variable at build time.
+# falls back to the bundled sources. To require the system library (the build
+# fails if it isn't found), set the LIBNGHTTP2_SYS_USE_PKG_CONFIG environment
+# variable at build time instead, which is also the only option that works when
+# this crate is a deep transitive dependency (a feature of a dependency can't be
+# enabled without editing the manifests in between).
 system = []
 
 [dependencies]

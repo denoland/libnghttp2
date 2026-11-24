@@ -106,10 +106,16 @@ fn build_bundled(out_dir: &Path, target: &str) {
 //
 // System linking is opt-in: it is attempted only when the `system` Cargo
 // feature is enabled or the LIBNGHTTP2_SYS_USE_PKG_CONFIG environment variable
-// is set to a truthy value. When opted in but no suitable library is found, we
-// return false so the caller falls back to the bundled build.
+// is set to a truthy value.
+//
+// The environment variable means "the system library is required": if it is set
+// and no suitable library is found, the build fails instead of silently bundling
+// nghttp2, which is what packagers (e.g. Linux distributions) need to rule out.
+// The feature is opportunistic: when it is enabled but no suitable library is
+// found, we return false so the caller falls back to the bundled build.
 fn try_system_nghttp2(out_dir: &Path) -> bool {
-  if !system_linking_requested() {
+  let required = system_linking_required();
+  if !required && !system_linking_requested_by_feature() {
     return false;
   }
 
@@ -135,6 +141,14 @@ fn try_system_nghttp2(out_dir: &Path) -> bool {
       );
       true
     }
+    Err(err) if required => {
+      panic!(
+        "libnghttp2: LIBNGHTTP2_SYS_USE_PKG_CONFIG is set, but a suitable \
+         system library was not found ({err}).\n\
+         Install the libnghttp2 development files (and pkg-config), or unset \
+         LIBNGHTTP2_SYS_USE_PKG_CONFIG to build the bundled copy."
+      );
+    }
     Err(err) => {
       println!(
         "cargo:warning=libnghttp2: system library requested but not found \
@@ -145,11 +159,9 @@ fn try_system_nghttp2(out_dir: &Path) -> bool {
   }
 }
 
-fn system_linking_requested() -> bool {
-  // `cargo:rustc-cfg`/features reach build scripts as CARGO_FEATURE_* vars.
-  if env::var_os("CARGO_FEATURE_SYSTEM").is_some() {
-    return true;
-  }
+// Whether the LIBNGHTTP2_SYS_USE_PKG_CONFIG environment variable asks for the
+// system library (which is then required) with a truthy value.
+fn system_linking_required() -> bool {
   match env::var("LIBNGHTTP2_SYS_USE_PKG_CONFIG") {
     Ok(value) => {
       let value = value.trim();
@@ -157,6 +169,13 @@ fn system_linking_requested() -> bool {
     }
     Err(_) => false,
   }
+}
+
+// Whether the `system` Cargo feature (which tries the system library, falling
+// back to the bundled copy) is enabled. Features reach build scripts as
+// CARGO_FEATURE_* variables.
+fn system_linking_requested_by_feature() -> bool {
+  env::var_os("CARGO_FEATURE_SYSTEM").is_some()
 }
 
 fn emit_rerun_if_changed() {
