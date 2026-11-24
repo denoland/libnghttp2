@@ -37,22 +37,30 @@ By default this crate builds and statically links the bundled copy of nghttp2,
 so it works out of the box with no system dependencies.
 
 Packagers (e.g. distros) can instead link against a system libnghttp2 discovered
-via `pkg-config`. This is opt-in and falls back to the bundled build if no
-suitable system library is found:
+via `pkg-config`. This is opt-in:
 
-- Enable the `system` Cargo feature:
+- Set the `LIBNGHTTP2_SYS_USE_PKG_CONFIG=1` environment variable at build time
+  (no source changes required). The system library is then required: the build
+  fails if no suitable one is found, so it never silently bundles nghttp2:
+
+  ```sh
+  LIBNGHTTP2_SYS_USE_PKG_CONFIG=1 cargo build
+  ```
+
+- Or enable the `system` Cargo feature. This tries the system library and falls
+  back to the bundled build if no suitable one is found:
 
   ```toml
   [dependencies]
   libnghttp2 = { version = "1", features = ["system"] }
   ```
 
-- Or set the `LIBNGHTTP2_SYS_USE_PKG_CONFIG=1` environment variable at build
-  time (no source changes required):
-
-  ```sh
-  LIBNGHTTP2_SYS_USE_PKG_CONFIG=1 cargo build
-  ```
+  Note that Cargo features can only be enabled by editing a manifest, and a
+  feature of a dependency can't be set from the command line. When this crate is
+  a deep transitive dependency of the package being built (as it usually is),
+  a packager would have to patch the manifests in between to forward the
+  feature, so it is of little use to them. That is why the environment variable
+  is the recommended way for packagers.
 
 The crate declares `links = "nghttp2"`, so downstream `-sys`-style consumers can
 read `DEP_NGHTTP2_ROOT` and `DEP_NGHTTP2_INCLUDE` from their build scripts.
